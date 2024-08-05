@@ -1,0 +1,20 @@
+{
+  "extends": "@extension/tsconfig/base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@lib/*": [
+        "lib/*"
+      ]
+    },
+    "types": [
+      "chrome"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "noImplicitAny": false
+  },
+  "include": [
+    "lib"
+  ]
+}
