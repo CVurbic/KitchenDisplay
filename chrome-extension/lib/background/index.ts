@@ -16,6 +16,24 @@ let settings: any = {}
 let highlightArtiklID: number | undefined
 
 
+
+
+const channels = supabase.channel('custom-all-channel')
+  .on(
+    'postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'kitchenNotifikations' },
+    (payload) => {
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (tabs[0].id) chrome.tabs.sendMessage(tabs[0].id, { newNotification: payload.new });
+      })
+      console.log('Change received!', payload)
+    }
+  )
+  .subscribe()
+
+
+
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log("Extension installed");
 });
@@ -111,7 +129,6 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, _tab) {
 
   }
 }); */
-
 
 
 
@@ -309,7 +326,40 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
     removeExistingArikles(message.allTicketItems)
     return true
   }
+  if (message.type === 'SEND_ANSWERS') {
+    console.log('Received answers from content script:', message.answers);
 
+    // Ensure `message.answers` is a valid object
+    const isValidJSON = (obj: any) => {
+      try {
+        JSON.stringify(obj);
+        return true;
+      } catch (e) {
+        return false;
+      }
+    };
+
+    if (!isValidJSON(message.answers)) {
+      console.error('Invalid JSON data:', message.answers);
+      sendResponse({ success: false, error: 'Invalid JSON data' });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('kitchenNotifikations')
+      .update({ response: message.answers })
+      .eq('id', message.notification.id) // Make sure to match the correct condition
+      .select();
+
+    if (error) {
+      console.error('Error updating Supabase:', error);
+      sendResponse({ success: false, error: error.message });
+    } else {
+      sendResponse({ success: true });
+    }
+
+    return true; // Keep the channel open for response
+  }
   if (message.action === "fetchActiveTickets") {
     try {
       const responseData = await fetchActiveTickets();

@@ -3,10 +3,6 @@ import { toggleTheme } from '@lib/toggleTheme';
 
 
 
-
-
-
-
 const napitci = {
     "AYRAN": 0,
     "CAPPY JABUKA 0,33l": 0,
@@ -117,6 +113,8 @@ let isGlowing = false;
 let allTicketItems: any = [];
 let allArticles: string[] = [];
 let ticketCode: string
+let notBox: boolean = false
+
 const newColors = [
     {
         glovo: { header: "rgba(0,160,30,1)", body: "rgba(255,194,68,0.5)" },
@@ -154,6 +152,7 @@ const observer = new MutationObserver((mutations) => {
                 hideGlowElement();
                 allTicketItems = [];
                 processTicket(node);
+                createNotificationElement()
             }
         });
     });
@@ -171,6 +170,7 @@ const tbodyElements = document.querySelectorAll("#mainTableRow tbody.zero-progre
 easyToMakeTicketsHighlighter();
 importantArticle();
 hideGlowElement();
+createNotificationElement()
 if (settings.onOffCollors) addColorToTicket();
 
 allTicketItems = [];
@@ -196,6 +196,11 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.popisArtikala) {
         allArticles.push(message.popisArtikala);
         setStoredData("allArticles", allArticles);
+    }
+
+    if (message.newNotification) {
+        showNotificationElement()
+        createNotificationBox(message.newNotification)
     }
 
 });
@@ -804,6 +809,144 @@ function uncommentParentElement() {
 
 
 
+
+function createNotificationElement() {
+    const notificationElement = document.createElement('div');
+    notificationElement.classList.add('notification');
+    notificationElement.style.display = 'none';
+    notificationElement.style.position = 'fixed';
+    notificationElement.style.top = '20px';
+    notificationElement.style.right = '20px';
+    notificationElement.style.padding = '20px';
+    notificationElement.style.borderRadius = '50%';
+    notificationElement.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+    notificationElement.style.backgroundColor = 'white';
+    notificationElement.style.zIndex = '9999';
+    document.body.appendChild(notificationElement);
+
+}
+
+function showNotificationElement() {
+    const notificationElement = document.querySelector('.notification') as HTMLElement;
+    if (notificationElement) {
+        notificationElement.style.display = 'block';
+    }
+    let isBlinking = true;
+
+    notificationElement.addEventListener('click', () => {
+        clearInterval(blinkInterval);
+        notificationElement.style.transition = 'none';
+        notificationElement.style.backgroundColor = 'white';
+        notificationElement.style.boxShadow = 'none';
+        notBox = !notBox
+        if (notBox) showNotificationBox()
+        else hideNotificationBox()
+
+    });
+
+    const blinkInterval = setInterval(() => {
+        isBlinking = !isBlinking;
+        notificationElement.style.transition = 'background-color 0.5s ease-in-out, box-shadow 0.5s ease-in-out';
+        notificationElement.style.backgroundColor = isBlinking ? 'red' : 'white';
+        notificationElement.style.boxShadow = isBlinking ? '0 0 10px rgba(255, 0, 0, 0.5)' : 'none';
+    }, 500);
+
+}
+
+function showNotificationBox() {
+    const notificationElement = document.querySelector('.notificationBox') as HTMLElement;
+    if (notificationElement) {
+        notificationElement.style.display = 'block';
+    }
+
+}
+function hideNotificationBox() {
+    const notificationElement = document.querySelector('.notificationBox') as HTMLElement;
+    if (notificationElement) {
+        notificationElement.style.display = 'none';
+    }
+}
+
+
+const notificationBox = document.createElement('div');
+notificationBox.classList.add('notificationBox');
+notificationBox.style.display = 'none';
+notificationBox.style.position = 'fixed';
+notificationBox.style.top = '20px';
+notificationBox.style.left = '50%';
+notificationBox.style.transform = 'translateX(-50%)';
+notificationBox.style.padding = '20px';
+notificationBox.style.borderRadius = '10px';
+notificationBox.style.backgroundColor = '#f1f1f1';
+notificationBox.style.zIndex = '9999';
+notificationBox.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+notificationBox.style.overflow = 'auto';
+
+document.body.appendChild(notificationBox);
+
+function createNotificationBox(notification: any) {
+    const notificationElement = document.createElement('p');
+    notificationElement.textContent = notification.notification;
+    notificationBox.appendChild(notificationElement);
+
+    if (notification.isResponseNeeded) {
+        const answersContainer = document.createElement('div');
+        answersContainer.className = 'answersContainer';
+
+        Object.entries(notification.neededAnswers).forEach(([key, answer]) => {
+            const label = document.createElement('label');
+            label.textContent = `${answer}: `;
+            answersContainer.appendChild(label);
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.required = true;  // Added this line
+            label.appendChild(input);
+        });
+        notificationBox.appendChild(answersContainer);
+    }
+
+    const closeButton = document.createElement('button');
+    closeButton.textContent = 'Save';
+    closeButton.addEventListener('click', () => {
+        const answersContainer = notificationBox.querySelector('.answersContainer') as HTMLElement;
+        const hasEmptyInputs = Array.from(answersContainer.querySelectorAll('input')).some((input) => {
+            return input.value === '';
+        });
+
+        if (hasEmptyInputs) {
+            alert('Please fill in all the fields');
+            return;
+        }
+
+        sendAnswersToBackground(notification);
+        notificationBox.style.display = 'none';
+        notBox = false;
+    });
+    notificationBox.appendChild(closeButton);
+}
+
+
+
+function sendAnswersToBackground(notification: any) {
+    const answersContainer = notificationBox.querySelector('.answersContainer') as HTMLElement;
+    console.log(answersContainer)
+    const answers: { [key: string]: string } = {};
+
+    answersContainer?.querySelectorAll('input').forEach((input, index) => {
+
+        const label = answersContainer.querySelectorAll('label')[index];
+        const question = label.textContent?.trim().split(':')[0] || ''; // Assign a default empty string if question is undefined
+        answers[question] = input.value;
+    });
+    console.log(answers)
+
+    chrome.runtime.sendMessage({
+        type: 'SEND_ANSWERS',
+        notification: notification,
+        answers,
+    });
+}
 
 
 
