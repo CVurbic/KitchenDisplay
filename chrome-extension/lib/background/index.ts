@@ -347,7 +347,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
 
     const { error } = await supabase
       .from('kitchenNotifikations')
-      .update({ response: message.answers })
+      .update({ response: message.answers, procitano: true })
       .eq('id', message.notification.id) // Make sure to match the correct condition
       .select();
 

@@ -1,5 +1,5 @@
 import { toggleTheme } from '@lib/toggleTheme';
-
+import { MdNotifications, MdNotificationsActive } from "react-icons/md";
 
 
 
@@ -153,6 +153,7 @@ const observer = new MutationObserver((mutations) => {
                 allTicketItems = [];
                 processTicket(node);
                 createNotificationElement()
+                generateNotificationBox()
             }
         });
     });
@@ -171,6 +172,7 @@ easyToMakeTicketsHighlighter();
 importantArticle();
 hideGlowElement();
 createNotificationElement()
+generateNotificationBox()
 if (settings.onOffCollors) addColorToTicket();
 
 allTicketItems = [];
@@ -199,7 +201,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     }
 
     if (message.newNotification) {
-        showNotificationElement()
+        startBellShake()
         createNotificationBox(message.newNotification)
     }
 
@@ -811,80 +813,141 @@ function uncommentParentElement() {
 
 
 function createNotificationElement() {
-    const notificationElement = document.createElement('div');
-    notificationElement.classList.add('notification');
-    notificationElement.style.display = 'none';
-    notificationElement.style.position = 'fixed';
-    notificationElement.style.top = '20px';
-    notificationElement.style.right = '20px';
-    notificationElement.style.padding = '20px';
-    notificationElement.style.borderRadius = '50%';
-    notificationElement.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
-    notificationElement.style.backgroundColor = 'white';
-    notificationElement.style.zIndex = '9999';
-    document.body.appendChild(notificationElement);
+    const notificationSVGNamespace = "http://www.w3.org/2000/svg";
+    const notificationSVG = document.createElementNS(notificationSVGNamespace, "svg");
 
-}
+    notificationSVG.setAttribute("width", "50");
+    notificationSVG.setAttribute("height", "50");
+    notificationSVG.setAttribute("viewBox", "-8 -8 60 55");
+    notificationSVG.setAttribute("fill", "none");
+    notificationSVG.setAttribute("xmlns", notificationSVGNamespace);
+    notificationSVG.setAttribute("class", "notificationLogo");
 
-function showNotificationElement() {
-    const notificationElement = document.querySelector('.notification') as HTMLElement;
-    if (notificationElement) {
-        notificationElement.style.display = 'block';
-    }
-    let isBlinking = true;
+    const notificationPath = document.createElementNS(notificationSVGNamespace, "path");
+    notificationPath.setAttribute("d", "M11.7917 3.50016L8.81258 0.520996C3.81258 4.3335 0.520915 10.2085 0.229248 16.8752H4.39592C4.54349 14.2331 5.28514 11.6584 6.56564 9.34263C7.84614 7.02691 9.63251 5.02986 11.7917 3.50016ZM37.6042 16.8752H41.7709C41.4584 10.2085 38.1667 4.3335 33.1876 0.520996L30.2292 3.50016C32.3792 5.03739 34.1576 7.03664 35.4339 9.35113C36.7101 11.6656 37.4517 14.2366 37.6042 16.8752ZM33.5001 17.9168C33.5001 11.521 30.0834 6.16683 24.1251 4.75016V3.3335C24.1251 1.60433 22.7292 0.208496 21.0001 0.208496C19.2709 0.208496 17.8751 1.60433 17.8751 3.3335V4.75016C11.8959 6.16683 8.50008 11.5002 8.50008 17.9168V28.3335L4.33341 32.5002V34.5835H37.6667V32.5002L33.5001 28.3335V17.9168ZM21.0001 40.8335C21.2917 40.8335 21.5626 40.8127 21.8334 40.7502C23.1876 40.4585 24.2917 39.5418 24.8334 38.2918C25.0417 37.7918 25.1459 37.2502 25.1459 36.6668H16.8126C16.8334 38.9585 18.6876 40.8335 21.0001 40.8335Z");
+    notificationPath.setAttribute("fill", "#1D1B20");
+    notificationPath.setAttribute("filter", "url(#shadow)");
 
-    notificationElement.addEventListener('click', () => {
-        clearInterval(blinkInterval);
-        notificationElement.style.transition = 'none';
-        notificationElement.style.backgroundColor = 'white';
-        notificationElement.style.boxShadow = 'none';
-        notBox = !notBox
-        if (notBox) showNotificationBox()
-        else hideNotificationBox()
+    notificationSVG.appendChild(notificationPath);
+    document.body.appendChild(notificationSVG);
 
+    notificationSVG.style.position = 'fixed';
+    notificationSVG.style.top = '45px';
+    notificationSVG.style.right = '200px';
+    notificationSVG.style.borderRadius = '50%';
+    notificationSVG.style.backgroundColor = 'transparent';
+    notificationSVG.style.zIndex = '9999';
+
+    notificationSVG.addEventListener("click", () => {
+        const notificationElement = document.querySelector('.notificationBox') as HTMLElement;
+
+        notificationElement.style.display = notificationElement.style.display === 'block' ? 'none' : 'block';
     });
-
-    const blinkInterval = setInterval(() => {
-        isBlinking = !isBlinking;
-        notificationElement.style.transition = 'background-color 0.5s ease-in-out, box-shadow 0.5s ease-in-out';
-        notificationElement.style.backgroundColor = isBlinking ? 'red' : 'white';
-        notificationElement.style.boxShadow = isBlinking ? '0 0 10px rgba(255, 0, 0, 0.5)' : 'none';
-    }, 500);
-
 }
 
-function showNotificationBox() {
-    const notificationElement = document.querySelector('.notificationBox') as HTMLElement;
-    if (notificationElement) {
-        notificationElement.style.display = 'block';
+
+
+function startBellShake() {
+    // Get the notification logo SVG element
+    const svgElement = document.querySelector(".notificationLogo") as HTMLElement;
+
+    // Create the filter element
+    const svgNamespace = "http://www.w3.org/2000/svg";
+    const filter = document.createElementNS(svgNamespace, "filter");
+    filter.setAttribute("id", "shadow"); // Set the filter ID
+
+    // Create the feDropShadow element for the filter
+    const feDropShadow = document.createElementNS(svgNamespace, "feDropShadow");
+    feDropShadow.setAttribute("dx", "0"); // Horizontal offset
+    feDropShadow.setAttribute("dy", "0"); // Vertical offset
+    feDropShadow.setAttribute("stdDeviation", "5"); // Increase the blur radius for a stronger blur
+    feDropShadow.setAttribute("flood-color", "red"); // Shadow color
+    feDropShadow.setAttribute("flood-opacity", "1"); // Increase opacity for a stronger shadow
+
+    // Append feDropShadow to filter
+    filter.appendChild(feDropShadow);
+
+    // Append filter to SVG
+    svgElement.appendChild(filter);
+
+    // Define the keyframes for the shaking animation
+    const styleSheet = document.createElement("style");
+    styleSheet.type = "text/css";
+    styleSheet.innerHTML = `
+        /**
+         * Defines the keyframes for the shaking animation.
+         */
+        @keyframes shake {
+            0% { transform: rotate(-5deg); }
+            25% { transform: rotate(5deg); }
+            50% { transform: rotate(-5deg); }
+            75% { transform: rotate(5deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        /**
+         * Applies the shaking animation to the element with the 'shake' class.
+         */
+        .shake {
+            animation: shake 0.5s ease-in-out infinite;
+        }
+    `;
+    document.head.appendChild(styleSheet);
+
+    // Add the shaking class to the SVG element
+    svgElement.classList.add("shake");
+}
+
+
+function stopBellShaking() {
+    // Get the notification logo SVG element
+    const svgElement = document.querySelector(".notificationLogo") as HTMLElement;
+
+    if (svgElement) {
+        // Remove the shaking class from the SVG element
+        svgElement.classList.remove("shake");
+
+        // Remove the filter
+        const filter = svgElement.querySelector("filter");
+        if (filter) {
+            svgElement.removeChild(filter);
+        }
+
+        // Optionally, remove the style sheet if it is no longer needed
+        const styleSheet = Array.from(document.styleSheets).find(sheet => {
+            return (sheet as CSSStyleSheet).cssRules &&
+                Array.from((sheet as CSSStyleSheet).cssRules).some(rule => rule.cssText.includes('@keyframes shake'));
+        }) as CSSStyleSheet;
+
+        if (styleSheet && styleSheet.ownerNode) {
+            // Remove the style sheet from the document head
+            document.head.removeChild(styleSheet.ownerNode);
+        }
     }
-
-}
-function hideNotificationBox() {
-    const notificationElement = document.querySelector('.notificationBox') as HTMLElement;
-    if (notificationElement) {
-        notificationElement.style.display = 'none';
-    }
 }
 
 
-const notificationBox = document.createElement('div');
-notificationBox.classList.add('notificationBox');
-notificationBox.style.display = 'none';
-notificationBox.style.position = 'fixed';
-notificationBox.style.top = '20px';
-notificationBox.style.left = '50%';
-notificationBox.style.transform = 'translateX(-50%)';
-notificationBox.style.padding = '20px';
-notificationBox.style.borderRadius = '10px';
-notificationBox.style.backgroundColor = '#f1f1f1';
-notificationBox.style.zIndex = '9999';
-notificationBox.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
-notificationBox.style.overflow = 'auto';
 
-document.body.appendChild(notificationBox);
 
+function generateNotificationBox() {
+    const notificationBox = document.createElement('div');
+    notificationBox.classList.add('notificationBox');
+    notificationBox.style.display = 'none';
+    notificationBox.style.position = 'fixed';
+    notificationBox.style.top = '20px';
+    notificationBox.style.left = '50%';
+    notificationBox.style.transform = 'translateX(-50%)';
+    notificationBox.style.padding = '20px';
+    notificationBox.style.borderRadius = '10px';
+    notificationBox.style.backgroundColor = '#f1f1f1';
+    notificationBox.style.zIndex = '9999';
+    notificationBox.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+    notificationBox.style.overflow = 'auto';
+
+    document.body.appendChild(notificationBox);
+}
 function createNotificationBox(notification: any) {
+    const notificationBox = document.querySelector('.notificationBox') as HTMLElement;
     const notificationElement = document.createElement('p');
     notificationElement.textContent = notification.notification;
     notificationBox.appendChild(notificationElement);
@@ -910,18 +973,24 @@ function createNotificationBox(notification: any) {
     closeButton.textContent = 'Save';
     closeButton.addEventListener('click', () => {
         const answersContainer = notificationBox.querySelector('.answersContainer') as HTMLElement;
-        const hasEmptyInputs = Array.from(answersContainer.querySelectorAll('input')).some((input) => {
-            return input.value === '';
-        });
 
-        if (hasEmptyInputs) {
-            alert('Please fill in all the fields');
-            return;
+        console.log("ansercont", answersContainer)
+        if (answersContainer) {
+            const hasEmptyInputs = Array.from(answersContainer.querySelectorAll('input')).some((input) => {
+                return input.value === '';
+            });
+
+            if (hasEmptyInputs) {
+                alert('Please fill in all the fields');
+                return;
+            }
+            sendAnswersToBackground(notification);
+            notificationBox
         }
-
         sendAnswersToBackground(notification);
         notificationBox.style.display = 'none';
         notBox = false;
+        stopBellShaking()
     });
     notificationBox.appendChild(closeButton);
 }
@@ -929,6 +998,7 @@ function createNotificationBox(notification: any) {
 
 
 function sendAnswersToBackground(notification: any) {
+    const notificationBox = document.querySelector('.notificationBox') as HTMLElement;
     const answersContainer = notificationBox.querySelector('.answersContainer') as HTMLElement;
     console.log(answersContainer)
     const answers: { [key: string]: string } = {};
@@ -946,6 +1016,7 @@ function sendAnswersToBackground(notification: any) {
         notification: notification,
         answers,
     });
+    generateNotificationBox()
 }
 
 

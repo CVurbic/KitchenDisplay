@@ -38,7 +38,7 @@ const manifest = deepmerge(
     background: {
       service_worker: 'background.iife.js',
       type: 'module',
-      matches: ["file:///*/*", 'http://*/*', 'https://*/*', '<all_urls>']
+      matches: ["file:///*/*", 'http://*/*', '127.**', '<all_urls>']
     },
     action: {
       default_popup: 'popup/index.html',
