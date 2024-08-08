@@ -1,5 +1,4 @@
 import { toggleTheme } from '@lib/toggleTheme';
-import { MdNotifications, MdNotificationsActive } from "react-icons/md";
 
 
 
@@ -113,7 +112,7 @@ let isGlowing = false;
 let allTicketItems: any = [];
 let allArticles: string[] = [];
 let ticketCode: string
-let notBox: boolean = false
+let notifications: any = []
 
 const newColors = [
     {
@@ -130,7 +129,6 @@ let lastColor: [string, string] = ["", ""];
 settings = getStoredData("settings", settings);
 
 
-console.log("windowLoadeed")
 const nav = document.getElementById("navigacija");
 const navHeight = nav ? nav.offsetHeight : "45";
 createGlowElement(navHeight);
@@ -147,13 +145,14 @@ const observer = new MutationObserver((mutations) => {
             ) {
 
                 if (settings.onOffCollors) addColorToTicket();
+                generateNotificationBox()
                 easyToMakeTicketsHighlighter();
                 importantArticle();
                 hideGlowElement();
                 allTicketItems = [];
                 processTicket(node);
+                getNotificationsFromStorage()
                 createNotificationElement()
-                generateNotificationBox()
             }
         });
     });
@@ -168,11 +167,12 @@ observer.observe(document.body, {
 
 const tbodyElements = document.querySelectorAll("#mainTableRow tbody.zero-progress-ticket");
 
+generateNotificationBox()
 easyToMakeTicketsHighlighter();
 importantArticle();
 hideGlowElement();
+getNotificationsFromStorage()
 createNotificationElement()
-generateNotificationBox()
 if (settings.onOffCollors) addColorToTicket();
 
 allTicketItems = [];
@@ -201,11 +201,27 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     }
 
     if (message.newNotification) {
+        let notification = message.newNotification
+        notifications.unshift(notification);
+
+
+        console.log("message", notifications)
         startBellShake()
-        createNotificationBox(message.newNotification)
+        saveNewNotificationToLocalstorage()
+        fillNotificationBox()
     }
 
 });
+
+// Function to sort notifications, unread first
+function sortNotifications(notifications: any[]) {
+    return notifications.slice().sort((a, b) => {
+        // Unread notifications come first
+        if (a.procitano === b.procitano) return 0;
+        return a.procitano ? 1 : -1;
+    });
+}
+
 
 tabContent.addEventListener('click', function (e) {
     const clickedElement = e.target as HTMLElement | null;
@@ -253,7 +269,6 @@ function importantArticle() {
 
 
 function handleSkupniPrikaz() {
-    console.log("handleSkupni")
     const tbodyElements = document.querySelectorAll("#mainTableRow tbody.zero-progress-ticket");
 
     const skupniPrikazKategorije = {
@@ -409,7 +424,6 @@ function handleSkupniPrikaz() {
 
 
 function displaySummaryTicket(itemCounts) {
-    console.log("displaySummary", itemCounts)
     const existingSummaryTicket = document.querySelector(".summary-ticket");
     if (existingSummaryTicket) {
         existingSummaryTicket.remove();
@@ -607,7 +621,6 @@ function displaySummaryTicket(itemCounts) {
 
 
 function easyToMakeTicketsHighlighter() {
-    console.log("easyToMakeTicketsHighlighter")
     const tbodyElements = document.querySelectorAll("#mainTableRow tbody.zero-progress-ticket");
     handleSkupniPrikaz();
     const targetItems = [1593, 1591, 1589, 1590, 1587, 1588, 1594, 1584, 1521, 1524, 1597];
@@ -756,13 +769,11 @@ function addStyleToTicket(ticket, headerColor, bodyColor, ticketCode) {
                     // Pronađite poziciju "NAP.NAR.:"
                     const prefix = "NAP.NAR.:";
                     const index = text.indexOf(prefix);
-                    console.log(index)
 
                     // Ekstrahirajte tekst nakon "NAP.NAR.:"
 
                     const extractedText = text.substring(index + prefix.length).trim();
                     if (index !== -1) {
-                        console.log(extractedText); // Ispisati ili pohraniti u varijablu
                         if (extractedText.length > 0) {
                             ticketDescription.style.backgroundColor = "rgba(255,255,255,1)"
                             ticketDescription.style.fontSize = "medium"
@@ -771,7 +782,6 @@ function addStyleToTicket(ticket, headerColor, bodyColor, ticketCode) {
                         }
                     } else {
                         ticketDescription.innerHTML = extractedText
-                        console.log("Tekst 'NAP.NAR.:' nije pronađen.");
                     }
 
                 }
@@ -832,8 +842,8 @@ function createNotificationElement() {
     document.body.appendChild(notificationSVG);
 
     notificationSVG.style.position = 'fixed';
-    notificationSVG.style.top = '45px';
-    notificationSVG.style.right = '200px';
+    notificationSVG.style.top = '37px';
+    notificationSVG.style.right = '60px';
     notificationSVG.style.borderRadius = '50%';
     notificationSVG.style.backgroundColor = 'transparent';
     notificationSVG.style.zIndex = '9999';
@@ -932,75 +942,208 @@ function stopBellShaking() {
 function generateNotificationBox() {
     const notificationBox = document.createElement('div');
     notificationBox.classList.add('notificationBox');
-    notificationBox.style.display = 'none';
+    notificationBox.style.display = 'block';
     notificationBox.style.position = 'fixed';
+    notificationBox.style.minWidth = "700px"
+    notificationBox.style.maxWidth = "80vw"
     notificationBox.style.top = '20px';
     notificationBox.style.left = '50%';
     notificationBox.style.transform = 'translateX(-50%)';
     notificationBox.style.padding = '20px';
     notificationBox.style.borderRadius = '10px';
-    notificationBox.style.backgroundColor = '#f1f1f1';
+    notificationBox.style.backgroundColor = 'rgba(241, 241, 241, 0.95)';
     notificationBox.style.zIndex = '9999';
     notificationBox.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
     notificationBox.style.overflow = 'auto';
 
     document.body.appendChild(notificationBox);
 }
-function createNotificationBox(notification: any) {
+function fillNotificationBox() {
+    console.log("notif", notifications);
     const notificationBox = document.querySelector('.notificationBox') as HTMLElement;
-    const notificationElement = document.createElement('p');
-    notificationElement.textContent = notification.notification;
-    notificationBox.appendChild(notificationElement);
 
-    if (notification.isResponseNeeded) {
+    // Clear existing notifications before adding new ones
+    notificationBox.innerHTML = '';
+
+    // Function to swap notifications
+    function swapNotifications(index: number) {
+        const temp = notifications[0];
+        notifications[0] = notifications[index];
+        notifications[index] = temp;
+        fillNotificationBox();  // Re-render notifications after swapping
+    }
+
+    // Function to update localStorage with the current notifications
+    function saveNewNotificationToLocalstorage() {
+        localStorage.setItem('notifications', JSON.stringify(notifications));
+    }
+
+    // Display the newest notification with full width at the top
+    const newestNotification = notifications[0];
+    const newestNotificationElement = document.createElement('div');
+    newestNotificationElement.style.padding = '20px';  // Increased padding to make it stand out more
+    newestNotificationElement.style.margin = '0 10px 10px 10px';
+    newestNotificationElement.style.borderRadius = '5px';
+    newestNotificationElement.style.backgroundColor = '#fff';
+    newestNotificationElement.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.2)';  // Increased shadow for focus
+    newestNotificationElement.style.transform = 'scale(1.05)';  // Slightly enlarge the notification
+    newestNotificationElement.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease'; // Smooth transitions
+    newestNotificationElement.style.cursor = 'pointer';
+    newestNotificationElement.style.position = 'relative';  // Needed for positioning the status indicator
+
+    // Add the newest notification content
+    const notificationText = document.createElement('p');
+    notificationText.textContent = newestNotification.notification;
+    newestNotificationElement.appendChild(notificationText);
+
+    // Create and append the status indicator
+    const statusIndicator = document.createElement('div');
+    statusIndicator.style.position = 'absolute';
+    statusIndicator.style.bottom = '10px';
+    statusIndicator.style.right = '10px';
+    statusIndicator.style.width = '10px';
+    statusIndicator.style.height = '10px';
+    statusIndicator.style.borderRadius = '50%';
+    statusIndicator.style.backgroundColor = newestNotification.procitano ? '#28a745' : '#dc3545';  // Green if read, red if unread
+    newestNotificationElement.appendChild(statusIndicator);
+
+    // Check if a response is needed for the newest notification
+    if (newestNotification.isResponseNeeded) {
         const answersContainer = document.createElement('div');
         answersContainer.className = 'answersContainer';
 
-        Object.entries(notification.neededAnswers).forEach(([key, answer]) => {
+        Object.entries(newestNotification.neededAnswers).forEach(([key, answer]) => {
             const label = document.createElement('label');
             label.textContent = `${answer}: `;
             answersContainer.appendChild(label);
 
             const input = document.createElement('input');
             input.type = 'text';
-            input.required = true;  // Added this line
+            input.required = true;
             label.appendChild(input);
         });
-        notificationBox.appendChild(answersContainer);
-    }
 
-    const closeButton = document.createElement('button');
-    closeButton.textContent = 'Save';
-    closeButton.addEventListener('click', () => {
-        const answersContainer = notificationBox.querySelector('.answersContainer') as HTMLElement;
-
-        console.log("ansercont", answersContainer)
-        if (answersContainer) {
-            const hasEmptyInputs = Array.from(answersContainer.querySelectorAll('input')).some((input) => {
-                return input.value === '';
-            });
+        // Create the save button, which applies to all notifications
+        const saveButton = document.createElement('button');
+        saveButton.textContent = 'Pošalji';
+        saveButton.addEventListener('click', () => {
+            const inputs = Array.from(answersContainer.querySelectorAll('input')) as HTMLInputElement[];
+            const hasEmptyInputs = inputs.some(input => input.value === '');
 
             if (hasEmptyInputs) {
                 alert('Please fill in all the fields');
                 return;
             }
-            sendAnswersToBackground(notification);
-            notificationBox
+            // Update the notification with the answers
+            newestNotification.response = inputs.reduce((acc, input, idx) => {
+                acc[Object.keys(newestNotification.neededAnswers)[idx]] = input.value;
+                return acc;
+            }, {} as Record<string, string>);
+
+            newestNotification.procitano = true;
+
+            sendAnswersToBackground(newestNotification);
+            saveNewNotificationToLocalstorage();
+
+            console.log("after save", notifications);
+            notificationBox.style.display = 'none';
+            stopBellShaking();
+        });
+
+        newestNotificationElement.appendChild(answersContainer);
+        newestNotificationElement.appendChild(saveButton);
+    } else {
+        // For notifications that don't need a response, mark as read when clicked
+        newestNotificationElement.addEventListener('click', () => {
+            if (!newestNotification.procitano) {
+                newestNotification.procitano = true;
+                fillNotificationBox(); // Re-render to update the state of notifications
+            }
+        });
+    }
+
+    notificationBox.appendChild(newestNotificationElement);
+
+    // Create a container for older notifications
+    const olderNotificationsContainer = document.createElement('div');
+    olderNotificationsContainer.style.display = 'flex';
+    olderNotificationsContainer.style.flexWrap = 'nowrap';
+    olderNotificationsContainer.style.overflowX = 'auto';
+    olderNotificationsContainer.style.gap = '10px';
+
+    // Loop through the sorted notifications
+    notifications.slice(1).forEach((notification, index) => {
+        const notificationCard = document.createElement('div');
+        notificationCard.style.minWidth = '200px';
+        notificationCard.style.padding = '10px';
+        notificationCard.style.borderRadius = '5px';
+        notificationCard.style.margin = '5px';
+        notificationCard.style.backgroundColor = notification.procitano ? '#d4edda' : '#f8d7da';  // Soft green if read, soft red if unread
+        notificationCard.style.boxShadow = `0 0 10px ${notification.procitano ? '#28a745' : '#dc3545'}`;  // Glow effect
+        notificationCard.style.cursor = 'pointer';
+        notificationCard.style.transition = 'box-shadow 0.2s ease';  // Smooth transition for box-shadow
+        notificationCard.style.position = 'relative';  // Needed for positioning the status text
+
+        // Add the notification content
+        const notificationText = document.createElement('p');
+        notificationText.textContent = notification.notification;
+        notificationCard.appendChild(notificationText);
+
+        // Add "Potreban odgovor" or "Odgovoreno" text if response is needed
+        if (notification.isResponseNeeded) {
+            const statusText = document.createElement('p');
+            statusText.textContent = notification.procitano ? 'Odgovoreno' : 'Potreban odgovor';
+            statusText.style.position = 'absolute';
+            statusText.style.bottom = '10px';
+            statusText.style.right = '10px';
+            statusText.style.fontSize = '12px';  // Smaller font size
+            statusText.style.color = notification.procitano ? '#28a745' : '#dc3545';  // Green if answered, red if not
+            statusText.style.backgroundColor = '#fff';  // Background color for better visibility
+            statusText.style.padding = '2px 5px';  // Padding to make it more readable
+            statusText.style.borderRadius = '3px';  // Rounded corners for the background
+            notificationCard.appendChild(statusText);
         }
-        sendAnswersToBackground(notification);
-        notificationBox.style.display = 'none';
-        notBox = false;
-        stopBellShaking()
+
+        // Click event to swap this notification with the top one
+        notificationCard.addEventListener('click', () => {
+            const indexToSwap = notifications.indexOf(notification);
+            if (indexToSwap > 0) {
+                swapNotifications(indexToSwap);
+            }
+        });
+
+        // Only show the answersContainer if this notification becomes active (after clicking)
+        if (!notification.isResponseNeeded) {
+            // Mark as read immediately for non-active notifications
+            notificationCard.addEventListener('click', () => {
+                if (!notification.procitano) {
+                    notification.procitano = true;
+                    fillNotificationBox(); // Re-render to update the state of notifications
+                }
+            });
+        }
+
+        olderNotificationsContainer.appendChild(notificationCard);
     });
-    notificationBox.appendChild(closeButton);
+
+    notificationBox.appendChild(olderNotificationsContainer);
 }
+
+
+
+
+
+
+
+
+
 
 
 
 function sendAnswersToBackground(notification: any) {
     const notificationBox = document.querySelector('.notificationBox') as HTMLElement;
     const answersContainer = notificationBox.querySelector('.answersContainer') as HTMLElement;
-    console.log(answersContainer)
+
     const answers: { [key: string]: string } = {};
 
     answersContainer?.querySelectorAll('input').forEach((input, index) => {
@@ -1009,16 +1152,26 @@ function sendAnswersToBackground(notification: any) {
         const question = label.textContent?.trim().split(':')[0] || ''; // Assign a default empty string if question is undefined
         answers[question] = input.value;
     });
-    console.log(answers)
+
 
     chrome.runtime.sendMessage({
         type: 'SEND_ANSWERS',
         notification: notification,
         answers,
     });
-    generateNotificationBox()
 }
 
+const saveNewNotificationToLocalstorage = () => {
+    localStorage.setItem("notifications", JSON.stringify(notifications))
+}
+function getNotificationsFromStorage() {
+    const notificationsStr = localStorage.getItem("notifications");
+    if (notificationsStr) {
+        const oldNotifications = JSON.parse(notificationsStr);
+        notifications = oldNotifications.filter(notification => notification.isActive);
+        fillNotificationBox();
+    }
+}
 
 
 

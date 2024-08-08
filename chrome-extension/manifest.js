@@ -20,14 +20,17 @@ const manifest = deepmerge(
   {
     manifest_version: 3,
     default_locale: 'en',
-    /**
-     * if you want to support multiple languages, you can use the following reference
-     * https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Internationalization
-     */
     name: '__MSG_extensionName__',
     version: packageJson.version,
     description: '__MSG_extensionDescription__',
-    host_permissions: ["file:///*/*", '<all_urls>'],
+    host_permissions: [
+      "file:///*/*",
+      "http://127.0.0.1/*",
+      "http://192.168.0.0/*", // Covers 192.168.*.* addresses
+      "https://192.168.0.0/*", // For HTTPS if needed
+      "http://*/*",
+      "https://*/*"
+    ],
     permissions: [
       'storage',
       'scripting',
@@ -38,7 +41,7 @@ const manifest = deepmerge(
     background: {
       service_worker: 'background.iife.js',
       type: 'module',
-      matches: ["file:///*/*", 'http://*/*', '127.**', '<all_urls>']
+      matches: ["file:///*/*", 'http://127.0.0.1/*', 'http://192.168.0.0/*', 'https://192.168.0.0/*', 'http://*/*', 'https://*/*']
     },
     action: {
       default_popup: 'popup/index.html',
@@ -52,16 +55,16 @@ const manifest = deepmerge(
     },
     content_scripts: [
       {
-        matches: ["file:///*/*", "<all_urls>"],
+        matches: ["file:///*/*", "http://127.0.0.1/*", "http://192.168.0.0/*", "https://192.168.0.0/*"],
         js: ['content/index.iife.js'],
         run_at: "document_end"
       },
       {
-        matches: ["file:///*/*", "<all_urls>"],
+        matches: ["file:///*/*", "http://127.0.0.1/*", "http://192.168.0.0/*", "https://192.168.0.0/*"],
         js: ['content-ui/index.iife.js'],
       },
       {
-        matches: ["file:///*/*", "<all_urls>"],
+        matches: ["file:///*/*", "http://127.0.0.1/*", "http://192.168.0.0/*", "https://192.168.0.0/*"],
         css: ['content.css'], // public folder
       },
     ],
