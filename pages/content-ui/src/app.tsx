@@ -5,9 +5,6 @@ export default function App() {
     console.log('content ui loaded');
   }, []);
 
-  return (
-    <div className="flex gap-1 text-blue-500">
-      sfavcxjhgfvdsxghfd
-    </div>
+  return (<></>
   );
 }

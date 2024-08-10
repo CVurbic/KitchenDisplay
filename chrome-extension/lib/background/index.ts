@@ -11,7 +11,7 @@ const supabaseUrl = 'https://xxqeupvmmmxltbtxcgvp.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4cWV1cHZtbW14bHRidHhjZ3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Njk1Nzk3MDYsImV4cCI6MTk4NTE1NTcwNn0.Pump9exBhsc1TbUGqegEsqIXnmsmlUZMVlo2gSHoYDo';
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-const poslovnica = "CCOE"
+let poslovnica: any = undefined
 let settings: any = {}
 let highlightArtiklID: number | undefined
 
@@ -23,21 +23,44 @@ const channels = supabase.channel('custom-all-channel')
     'postgres_changes',
     { event: 'INSERT', schema: 'public', table: 'kitchenNotifikations' },
     (payload) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        if (tabs[0].id) chrome.tabs.sendMessage(tabs[0].id, { newNotification: payload.new });
-      })
-      console.log('Change received!', payload)
+      console.log(payload)
+      console.log(poslovnica)
+      // Extract the new notification data
+      const newNotification = payload.new;
+
+      // Check if the `poslovnica` matches the target value
+      if (newNotification.poslovnica === poslovnica) {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+          if (tabs[0].id) {
+            chrome.tabs.sendMessage(tabs[0].id, { newNotification });
+          }
+        });
+        console.log('Change received and matched!', payload);
+      } else {
+        console.log('Change received but does not match the filter.', payload);
+      }
     }
   )
-  .subscribe()
+  .subscribe();
 
 
 
+chrome.storage.local.get(null, function (data) {
+  console.log("All items in chrome.storage.local:", data);
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log("Extension installed");
 });
 
+chrome.storage.local.get("location", function (data) {
+  console.log("lokacija", data)
+  poslovnica = data.location
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    if (tabs[0].id) chrome.tabs.sendMessage(tabs[0].id, { poslovnicaID: data.location });
+  })
+
+});
 chrome.storage.local.get("settings", function (data) {
   console.log("StorageOnLoad", data)
   highlightArtiklID = data.settings?.highlightArticle;
@@ -327,7 +350,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
     return true
   }
   if (message.type === 'SEND_ANSWERS') {
-    console.log('Received answers from content script:', message.answers);
+    console.log('Received answers from content script:', message.notification);
 
     // Ensure `message.answers` is a valid object
     const isValidJSON = (obj: any) => {
@@ -347,9 +370,10 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
 
     const { error } = await supabase
       .from('kitchenNotifikations')
-      .update({ response: message.answers, procitano: true })
+      .update({ response: message.notification.response, procitano: true })
       .eq('id', message.notification.id) // Make sure to match the correct condition
       .select();
+
 
     if (error) {
       console.error('Error updating Supabase:', error);

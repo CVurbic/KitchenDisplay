@@ -2,8 +2,12 @@ import '@src/Popup.css';
 import { useStorageSuspense, withErrorBoundary, withSuspense } from '@extension/shared';
 import { exampleThemeStorage } from '@extension/storage';
 import { ComponentPropsWithoutRef, useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 
+const supabaseUrl = 'https://xxqeupvmmmxltbtxcgvp.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4cWV1cHZtbW14bHRidHhjZ3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Njk1Nzk3MDYsImV4cCI6MTk4NTE1NTcwNn0.Pump9exBhsc1TbUGqegEsqIXnmsmlUZMVlo2gSHoYDo';
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 
 interface Artikl {
@@ -15,7 +19,6 @@ interface Artikl {
 const Popup = () => {
   const theme = useStorageSuspense(exampleThemeStorage);
   const isLight = theme === 'light';
-  const logo = isLight ? 'popup/logo_vertical.svg' : 'popup/logo_vertical_dark.svg';
 
   const injectContentScript = async () => {
     const [tab] = await chrome.tabs.query({ currentWindow: true, active: true });
@@ -35,12 +38,13 @@ const Popup = () => {
   const [higlightArticle, setHighlightArticle] = useState()
   const [popisArtikala, setPopisArtikala] = useState<Artikl[]>([]);
   const [settings, setSettings] = useState({ highlightArticle: 0, onOffCollors: false });
-
+  const [poslovnice, setPoslovnica] = useState<any[]>([]);
+  const [odabranaPoslovnica, setOdabranaPoslovnica] = useState<string | number | null>(null);
 
 
 
   useEffect(() => {
-
+    fetchPoslovniceSupa()
     injectContentScript()
     setInitialValues()
 
@@ -63,15 +67,22 @@ const Popup = () => {
 
   useEffect(() => {
 
-    console.log("everyChangeSettings: ", settings)
-  }, [settings])
+    console.log("everyChangeSettings: ", poslovnice)
+  }, [poslovnice])
 
   function saveSettings() {
     localStorage.setItem("settings", JSON.stringify(settings));
     chrome.storage.local.set({ "settings": settings });
   }
+  function saveLocation() {
+  }
+  function postaviOdabranaPoslovnica(id: any) {
+    console.log("id prije", id)
+    setOdabranaPoslovnica(id)
 
-
+    localStorage.setItem("location", JSON.stringify(id));
+    chrome.storage.local.set({ "location": id });
+  }
   function setInitialValues() {
     let oldSettings = localStorage.getItem("settings");
     console.log("OldSettings", oldSettings);
@@ -97,7 +108,19 @@ const Popup = () => {
 
 
 
-
+  async function fetchPoslovniceSupa() {
+    const { data, error } = await supabase
+      .from('lokacije')
+      .select('*');
+    if (error) {
+      console.log('Greska pri pristupu na podatke iz Supabase', error);
+      return
+    } else {
+      console.log('Podaci iz Supabase', data);
+      setPoslovnica(data)
+      return data
+    }
+  }
 
 
 
@@ -105,10 +128,18 @@ const Popup = () => {
   return (
     <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
       <header className={`App-header ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>
-        <img src={chrome.runtime.getURL(logo)} className="App-logo" alt="logo" />
 
         <div>
-
+          <label>Odaberi poslovnicu
+            <select name="poslovnice" id="" onChange={(e) => postaviOdabranaPoslovnica(e.target.value)}>
+              <option value="0">Default</option>
+              {
+                poslovnice.map((poslovnica, index) => {
+                  return <option key={index} value={poslovnica.lokacija}>{poslovnica.lokacija}</option>
+                })
+              }
+            </select>
+          </label>
           <h3>Ukljući / Iskljući boje:</h3>
           <input type="checkbox" name="colorCheckbox" id="colorCheckbox" checked={onOffCollor} onChange={(e: any) => setOnOffCollor(e.target.checked)}
           />

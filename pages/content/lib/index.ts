@@ -113,7 +113,11 @@ let allTicketItems: any = [];
 let allArticles: string[] = [];
 let ticketCode: string
 let notifications: any = []
+let addLikeNotificationBoxIsOpen: boolean = true
+const tbodyElements = document.querySelectorAll("#mainTableRow tbody.zero-progress-ticket");
 
+const nav = document.getElementById("navigacija");
+const navHeight = nav ? nav.offsetHeight : "45";
 const newColors = [
     {
         glovo: { header: "rgba(0,160,30,1)", body: "rgba(255,194,68,0.5)" },
@@ -129,12 +133,25 @@ let lastColor: [string, string] = ["", ""];
 settings = getStoredData("settings", settings);
 
 
-const nav = document.getElementById("navigacija");
-const navHeight = nav ? nav.offsetHeight : "45";
 createGlowElement(navHeight);
-
-// Pozovi funkciju
 uncommentParentElement();
+
+generateNotificationBox()
+easyToMakeTicketsHighlighter();
+getNotificationsFromStorage()
+createAddLikeNotificationBox()
+if (notifications.length > 0)
+    importantArticle();
+hideGlowElement();
+createNotificationElement()
+if (settings.onOffCollors) addColorToTicket();
+
+allTicketItems = [];
+tbodyElements.forEach((tbody) => {
+    processTicket(tbody);
+});
+
+
 const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
@@ -145,14 +162,11 @@ const observer = new MutationObserver((mutations) => {
             ) {
 
                 if (settings.onOffCollors) addColorToTicket();
-                generateNotificationBox()
                 easyToMakeTicketsHighlighter();
                 importantArticle();
                 hideGlowElement();
                 allTicketItems = [];
                 processTicket(node);
-                getNotificationsFromStorage()
-                createNotificationElement()
             }
         });
     });
@@ -165,20 +179,7 @@ observer.observe(document.body, {
     attributeFilter: ["class"],
 });
 
-const tbodyElements = document.querySelectorAll("#mainTableRow tbody.zero-progress-ticket");
 
-generateNotificationBox()
-easyToMakeTicketsHighlighter();
-importantArticle();
-hideGlowElement();
-getNotificationsFromStorage()
-createNotificationElement()
-if (settings.onOffCollors) addColorToTicket();
-
-allTicketItems = [];
-tbodyElements.forEach((tbody) => {
-    processTicket(tbody);
-});
 
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
@@ -204,8 +205,7 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
         let notification = message.newNotification
         notifications.unshift(notification);
 
-
-        console.log("message", notifications)
+        updateAddLikeNotificationText(notification.notification)
         startBellShake()
         saveNewNotificationToLocalstorage()
         fillNotificationBox()
@@ -213,36 +213,39 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 
 });
 
-// Function to sort notifications, unread first
-function sortNotifications(notifications: any[]) {
-    return notifications.slice().sort((a, b) => {
-        // Unread notifications come first
-        if (a.procitano === b.procitano) return 0;
-        return a.procitano ? 1 : -1;
-    });
-}
-
+setInterval(() => { clearNotificationsAtSpecificTime(); checkAndDisplayNotifications() }, 60000);
 
 tabContent.addEventListener('click', function (e) {
     const clickedElement = e.target as HTMLElement | null;
-    if (clickedElement === null) return
+    if (clickedElement === null) return;
+
     const newSelectedTicket = clickedElement.closest('tbody.zero-progress-ticket');
-    const clickedTicketId = newSelectedTicket!.getAttribute("ticketid")
-    const ticketsWithClickedTicketId = document.querySelectorAll(`tbody[ticketid="${clickedTicketId}"]`);
-    const oldSelectedTickets = document.querySelectorAll(".selected-ticket")
+    if (!newSelectedTicket) return;
 
+    const clickedTicketId = newSelectedTicket.getAttribute("ticketid");
+    if (!clickedTicketId) return;
 
-    oldSelectedTickets.forEach((tbody) => {
-        (tbody as HTMLElement).style.outline = "";
-        tbody.classList.remove("selected-ticket");
+    // Select all tickets with the class .zero-progress-ticket
+    const allTickets = document.querySelectorAll('tbody.zero-progress-ticket');
+
+    allTickets.forEach((ticket) => {
+        const ticketElement = ticket as HTMLElement;
+
+        // Check if this ticket's id matches the clicked ticket id
+        const ticketId = ticket.getAttribute("ticketid");
+
+        if (ticketId === clickedTicketId) {
+            // Apply the outline to the newly selected ticket
+            ticketElement.classList.add("selected-ticket");
+            ticketElement.style.setProperty("outline", "5px solid red", "important");
+        } else {
+            // Remove the outline and class from all other tickets
+            ticketElement.classList.remove("selected-ticket");
+            ticketElement.style.outline = "";
+        }
     });
-
-    ticketsWithClickedTicketId.forEach(newSelectedTicket => {
-        newSelectedTicket!.classList.add("selected-ticket");
-        (newSelectedTicket! as HTMLElement).style.setProperty("outline", "5px solid red", "important");
-
-    })
 });
+
 
 
 function getStoredData(key, dataIfNothingFound) {
@@ -822,38 +825,6 @@ function uncommentParentElement() {
 
 
 
-function createNotificationElement() {
-    const notificationSVGNamespace = "http://www.w3.org/2000/svg";
-    const notificationSVG = document.createElementNS(notificationSVGNamespace, "svg");
-
-    notificationSVG.setAttribute("width", "50");
-    notificationSVG.setAttribute("height", "50");
-    notificationSVG.setAttribute("viewBox", "-8 -8 60 55");
-    notificationSVG.setAttribute("fill", "none");
-    notificationSVG.setAttribute("xmlns", notificationSVGNamespace);
-    notificationSVG.setAttribute("class", "notificationLogo");
-
-    const notificationPath = document.createElementNS(notificationSVGNamespace, "path");
-    notificationPath.setAttribute("d", "M11.7917 3.50016L8.81258 0.520996C3.81258 4.3335 0.520915 10.2085 0.229248 16.8752H4.39592C4.54349 14.2331 5.28514 11.6584 6.56564 9.34263C7.84614 7.02691 9.63251 5.02986 11.7917 3.50016ZM37.6042 16.8752H41.7709C41.4584 10.2085 38.1667 4.3335 33.1876 0.520996L30.2292 3.50016C32.3792 5.03739 34.1576 7.03664 35.4339 9.35113C36.7101 11.6656 37.4517 14.2366 37.6042 16.8752ZM33.5001 17.9168C33.5001 11.521 30.0834 6.16683 24.1251 4.75016V3.3335C24.1251 1.60433 22.7292 0.208496 21.0001 0.208496C19.2709 0.208496 17.8751 1.60433 17.8751 3.3335V4.75016C11.8959 6.16683 8.50008 11.5002 8.50008 17.9168V28.3335L4.33341 32.5002V34.5835H37.6667V32.5002L33.5001 28.3335V17.9168ZM21.0001 40.8335C21.2917 40.8335 21.5626 40.8127 21.8334 40.7502C23.1876 40.4585 24.2917 39.5418 24.8334 38.2918C25.0417 37.7918 25.1459 37.2502 25.1459 36.6668H16.8126C16.8334 38.9585 18.6876 40.8335 21.0001 40.8335Z");
-    notificationPath.setAttribute("fill", "#1D1B20");
-    notificationPath.setAttribute("filter", "url(#shadow)");
-
-    notificationSVG.appendChild(notificationPath);
-    document.body.appendChild(notificationSVG);
-
-    notificationSVG.style.position = 'fixed';
-    notificationSVG.style.top = '37px';
-    notificationSVG.style.right = '60px';
-    notificationSVG.style.borderRadius = '50%';
-    notificationSVG.style.backgroundColor = 'transparent';
-    notificationSVG.style.zIndex = '9999';
-
-    notificationSVG.addEventListener("click", () => {
-        const notificationElement = document.querySelector('.notificationBox') as HTMLElement;
-
-        notificationElement.style.display = notificationElement.style.display === 'block' ? 'none' : 'block';
-    });
-}
 
 
 
@@ -923,16 +894,7 @@ function stopBellShaking() {
             svgElement.removeChild(filter);
         }
 
-        // Optionally, remove the style sheet if it is no longer needed
-        const styleSheet = Array.from(document.styleSheets).find(sheet => {
-            return (sheet as CSSStyleSheet).cssRules &&
-                Array.from((sheet as CSSStyleSheet).cssRules).some(rule => rule.cssText.includes('@keyframes shake'));
-        }) as CSSStyleSheet;
 
-        if (styleSheet && styleSheet.ownerNode) {
-            // Remove the style sheet from the document head
-            document.head.removeChild(styleSheet.ownerNode);
-        }
     }
 }
 
@@ -942,24 +904,199 @@ function stopBellShaking() {
 function generateNotificationBox() {
     const notificationBox = document.createElement('div');
     notificationBox.classList.add('notificationBox');
-    notificationBox.style.display = 'block';
-    notificationBox.style.position = 'fixed';
-    notificationBox.style.minWidth = "700px"
-    notificationBox.style.maxWidth = "80vw"
-    notificationBox.style.top = '20px';
+    notificationBox.style.display = 'none';
+    notificationBox.style.position = 'absolute';
+    notificationBox.style.width = "60vw"
+    notificationBox.style.top = '70px';
     notificationBox.style.left = '50%';
     notificationBox.style.transform = 'translateX(-50%)';
     notificationBox.style.padding = '20px';
-    notificationBox.style.borderRadius = '10px';
+    notificationBox.style.paddingTop = '30px';
+    notificationBox.style.borderRadius = '0 0 10px 10px';
     notificationBox.style.backgroundColor = 'rgba(241, 241, 241, 0.95)';
-    notificationBox.style.zIndex = '9999';
+    notificationBox.style.zIndex = '9997';
     notificationBox.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
     notificationBox.style.overflow = 'auto';
 
     document.body.appendChild(notificationBox);
 }
+
+function createAddLikeNotificationBox() {
+    const addLikeNotificationBox = document.createElement("div");
+
+    // Style for the notification box
+    addLikeNotificationBox.classList.add('addLikeNotificationBox');
+    addLikeNotificationBox.style.display = "flex";
+    addLikeNotificationBox.style.justifyContent = "center";
+    addLikeNotificationBox.style.alignItems = "center";
+    addLikeNotificationBox.style.height = "50px";
+    addLikeNotificationBox.style.borderRadius = "10px";
+    addLikeNotificationBox.style.backgroundColor = "rgba(241, 241, 241, 0.95)";
+    addLikeNotificationBox.style.zIndex = "9998";
+    addLikeNotificationBox.style.padding = "5px 0 ";
+    addLikeNotificationBox.style.boxShadow = "0 0 10px rgba(0, 0, 0, 0.5)";
+    addLikeNotificationBox.style.width = "60vw"
+    addLikeNotificationBox.style.position = "absolute";
+    addLikeNotificationBox.style.top = "20px";
+    addLikeNotificationBox.style.left = "50%";
+    addLikeNotificationBox.style.transform = "translateX(-50%)";
+
+    // Create the black screen inside the notification box
+    const blackScreen = document.createElement("div");
+    blackScreen.id = "blackScreen";
+    blackScreen.style.display = "flex";
+    blackScreen.style.justifyContent = "flex-start"; // Align to the start for continuous scroll
+    blackScreen.style.alignItems = "center";
+    blackScreen.style.height = "90%";
+    blackScreen.style.width = "90%";
+    blackScreen.style.backgroundColor = "rgba(85, 85, 85, 0.15)";
+    blackScreen.style.boxShadow = "0 0 10px rgba(0, 0, 0, 0.5)";
+    blackScreen.style.overflow = "hidden";
+    blackScreen.style.position = "relative";
+    blackScreen.style.borderRadius = "10px";
+
+    // Create the first and second text elements
+    const movingText1 = document.createElement("div");
+    const movingText2 = document.createElement("div");
+    [movingText1, movingText2].forEach((movingText, index) => {
+        movingText.id = `movingText${index + 1}`; // Assign IDs to access later
+        movingText.style.whiteSpace = "nowrap";
+        movingText.style.position = "absolute";
+        movingText.style.color = "black";
+        movingText.style.fontSize = "20px";
+        blackScreen.appendChild(movingText);
+    });
+
+    // Append the black screen to the notification box
+    addLikeNotificationBox.appendChild(blackScreen);
+    // Append the notification box to the body
+    document.body.appendChild(addLikeNotificationBox);
+
+    // Add event listener for click to toggle notification box appearance
+    addLikeNotificationBox.addEventListener("click", () => {
+        const notificationElement = document.querySelector('.notificationBox') as HTMLElement;
+        removeTextOnRead();
+        changeLikeNotificationBoxStyle()
+
+        notificationElement.style.display = notificationElement.style.display === 'block' ? 'none' : 'block';
+    });
+}
+
+function changeLikeNotificationBoxStyle() {
+    addLikeNotificationBoxIsOpen = !addLikeNotificationBoxIsOpen
+    const addLikeNotificationBox = document.querySelector('.addLikeNotificationBox') as HTMLElement;
+    if (addLikeNotificationBoxIsOpen) {
+        addLikeNotificationBox.style.borderBottomRightRadius = "10px";
+        addLikeNotificationBox.style.borderBottomLeftRadius = "10px";
+        addLikeNotificationBox.style.borderBottom = "1px solid #ccc";
+        addLikeNotificationBox.style.boxShadow = "0 0 10px rgba(0, 0, 0, 0.5)";
+    } else {
+        addLikeNotificationBox.style.borderBottomRightRadius = "0";
+        addLikeNotificationBox.style.borderBottomLeftRadius = "0";
+        addLikeNotificationBox.style.borderBottom = "none";
+        addLikeNotificationBox.style.boxShadow = "none";
+    }
+}
+function updateAddLikeNotificationText(text: string) {
+    const movingText1 = document.getElementById("movingText1");
+    const movingText2 = document.getElementById("movingText2");
+    const blackScreen = document.getElementById("blackScreen");
+
+    if (blackScreen) {
+        blackScreen.style.boxShadow = "0 0 15px 5px rgba(255, 0, 0, 1)";
+    }
+
+    if (movingText1 && movingText2) {
+        // Set the same text for both moving elements
+        movingText1.textContent = text;
+        movingText2.textContent = text;
+
+        // Calculate the text width and container width
+        const textWidth = movingText1.offsetWidth;
+        const containerWidth = movingText1.parentElement!.offsetWidth;
+
+        // Calculate the duration of the animation based on the text width and container width
+        const scrollDuration = Math.max((textWidth + containerWidth) / 50, 10); // Adjust the divisor for speed control
+
+        // Update the keyframes for the scrolling text animation with dynamic duration
+        const styleSheet = document.getElementById("scrollStyle") as HTMLStyleElement || document.createElement("style");
+        styleSheet.id = "scrollStyle";
+        styleSheet.type = "text/css";
+        styleSheet.innerText = `
+            @keyframes moveText {
+                0% {
+                    left: ${containerWidth}px; /* Start off-screen to the right */
+                }
+                100% {
+                    left: -${textWidth}px; /* End off-screen to the left */
+                }
+            }
+            #movingText1, #movingText2 {
+                animation: moveText ${scrollDuration}s linear infinite;
+            }
+        `;
+
+        document.head.appendChild(styleSheet);
+
+        // Set initial positions
+        movingText1.style.left = `${containerWidth}px`;
+        movingText2.style.left = `${containerWidth + textWidth + 30}px`; // Spacing between texts
+
+        // Start the animation for both texts
+        [movingText1, movingText2].forEach((movingText) => {
+            movingText.style.animation = `moveText ${scrollDuration}s linear infinite`;
+        });
+    }
+}
+
+function removeTextOnRead() {
+    const movingText1 = document.getElementById("movingText1");
+    const movingText2 = document.getElementById("movingText2");
+    const blackScreen = document.getElementById("blackScreen");
+
+    if (blackScreen) {
+        blackScreen.style.boxShadow = "0 0 15px 5px rgba(0, 0, 0, 1)";
+    }
+
+    if (movingText1 && movingText2) {
+        movingText1.textContent = "";
+        movingText2.textContent = "";
+    }
+}
+
+
+function createNotificationElement() {
+    const notificationSVGNamespace = "http://www.w3.org/2000/svg";
+    const notificationSVG = document.createElementNS(notificationSVGNamespace, "svg");
+    const add = document.querySelector(".addLikeNotificationBox") as HTMLElement
+
+    notificationSVG.setAttribute("width", "40");
+    notificationSVG.setAttribute("height", "40");
+    notificationSVG.setAttribute("viewBox", "-8 -8 60 55");
+    notificationSVG.setAttribute("fill", "none");
+    notificationSVG.setAttribute("xmlns", notificationSVGNamespace);
+    notificationSVG.setAttribute("class", "notificationLogo");
+
+    const notificationPath = document.createElementNS(notificationSVGNamespace, "path");
+    notificationPath.setAttribute("d", "M11.7917 3.50016L8.81258 0.520996C3.81258 4.3335 0.520915 10.2085 0.229248 16.8752H4.39592C4.54349 14.2331 5.28514 11.6584 6.56564 9.34263C7.84614 7.02691 9.63251 5.02986 11.7917 3.50016ZM37.6042 16.8752H41.7709C41.4584 10.2085 38.1667 4.3335 33.1876 0.520996L30.2292 3.50016C32.3792 5.03739 34.1576 7.03664 35.4339 9.35113C36.7101 11.6656 37.4517 14.2366 37.6042 16.8752ZM33.5001 17.9168C33.5001 11.521 30.0834 6.16683 24.1251 4.75016V3.3335C24.1251 1.60433 22.7292 0.208496 21.0001 0.208496C19.2709 0.208496 17.8751 1.60433 17.8751 3.3335V4.75016C11.8959 6.16683 8.50008 11.5002 8.50008 17.9168V28.3335L4.33341 32.5002V34.5835H37.6667V32.5002L33.5001 28.3335V17.9168ZM21.0001 40.8335C21.2917 40.8335 21.5626 40.8127 21.8334 40.7502C23.1876 40.4585 24.2917 39.5418 24.8334 38.2918C25.0417 37.7918 25.1459 37.2502 25.1459 36.6668H16.8126C16.8334 38.9585 18.6876 40.8335 21.0001 40.8335Z");
+    notificationPath.setAttribute("fill", "#1D1B20");
+    notificationPath.setAttribute("filter", "url(#shadow)");
+
+    notificationSVG.appendChild(notificationPath);
+    add.appendChild(notificationSVG);
+
+    notificationSVG.style.position = 'absolute';
+    notificationSVG.style.top = '-20px'; // Adjust these values as needed
+    notificationSVG.style.left = '50%'; // Adjust these values as needed
+    notificationSVG.style.borderRadius = '50%';
+    notificationSVG.style.backgroundColor = 'transparent';
+    notificationSVG.style.zIndex = '9999';
+
+
+}
+
 function fillNotificationBox() {
-    console.log("notif", notifications);
+    if (notifications.length === 0) return
     const notificationBox = document.querySelector('.notificationBox') as HTMLElement;
 
     // Clear existing notifications before adding new ones
@@ -977,6 +1114,17 @@ function fillNotificationBox() {
     function saveNewNotificationToLocalstorage() {
         localStorage.setItem('notifications', JSON.stringify(notifications));
     }
+
+
+    function handleSend(notification: any) {
+        changeLikeNotificationBoxStyle()
+        saveNewNotificationToLocalstorage(); // Save updated notifications to localStorage
+        sendAnswersToBackground(notification); // Send the updated notification to the background
+        notificationBox.style.display = 'none'; // Hide notification box after sending
+        stopBellShaking();
+    }
+
+
 
     // Display the newest notification with full width at the top
     const newestNotification = notifications[0];
@@ -1012,51 +1160,94 @@ function fillNotificationBox() {
         const answersContainer = document.createElement('div');
         answersContainer.className = 'answersContainer';
 
-        Object.entries(newestNotification.neededAnswers).forEach(([key, answer]) => {
+        if (Object.keys(newestNotification.neededAnswers).length > 0) {
+            // Loop through neededAnswers if they exist
+            Object.entries(newestNotification.neededAnswers).forEach(([key, answer]) => {
+                const label = document.createElement('label');
+                label.textContent = `${answer}: `;
+                answersContainer.appendChild(label);
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.required = true;
+
+
+                const questionText = answer;
+
+                input.addEventListener('input', (event) => {
+                    const target = event.target as HTMLInputElement;
+                    newestNotification.response = newestNotification.response || {};
+                    newestNotification.response[questionText as string] = target.value;
+                });
+
+                // Trigger send on "Enter" key press
+                input.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter') {
+                        handleSend(newestNotification);
+
+                    }
+                });
+
+                label.appendChild(input);
+            });
+        } else {
+            // If no specific answers are needed, create a single input for a general response
             const label = document.createElement('label');
-            label.textContent = `${answer}: `;
+            label.textContent = 'Your Response: ';
             answersContainer.appendChild(label);
 
             const input = document.createElement('input');
             input.type = 'text';
             input.required = true;
-            label.appendChild(input);
-        });
+            input.addEventListener('input', (event) => {
+                const target = event.target as HTMLInputElement;
+                newestNotification.response = newestNotification.response || {};
+                newestNotification.response.generalResponse = target.value;
 
-        // Create the save button, which applies to all notifications
+
+
+            });
+
+            label.appendChild(input);
+
+            // Add a placeholder or ID for the general response
+            newestNotification.neededAnswers = { generalResponse: 'Your Response' };
+        }
+
         const saveButton = document.createElement('button');
         saveButton.textContent = 'Pošalji';
-        saveButton.addEventListener('click', () => {
-            const inputs = Array.from(answersContainer.querySelectorAll('input')) as HTMLInputElement[];
-            const hasEmptyInputs = inputs.some(input => input.value === '');
+        saveButton.setAttribute("class", "sendAnswerBtn");
 
-            if (hasEmptyInputs) {
-                alert('Please fill in all the fields');
-                return;
-            }
-            // Update the notification with the answers
-            newestNotification.response = inputs.reduce((acc, input, idx) => {
-                acc[Object.keys(newestNotification.neededAnswers)[idx]] = input.value;
-                return acc;
-            }, {} as Record<string, string>);
+        // Apply styles to the button
+        saveButton.style.padding = '5px 10px';
+        saveButton.style.marginLeft = '15px';
+        saveButton.style.backgroundColor = '#007bff';
+        saveButton.style.color = '#fff';
+        saveButton.style.border = 'none';
+        saveButton.style.borderRadius = '5px';
+        saveButton.style.cursor = 'pointer';
+        saveButton.style.fontSize = '16px';
+        saveButton.style.transition = 'background-color 0.3s ease';
 
-            newestNotification.procitano = true;
-
-            sendAnswersToBackground(newestNotification);
-            saveNewNotificationToLocalstorage();
-
-            console.log("after save", notifications);
-            notificationBox.style.display = 'none';
-            stopBellShaking();
+        // Add hover effect
+        saveButton.addEventListener('mouseover', () => {
+            saveButton.style.backgroundColor = '#0056b3';
         });
-
+        saveButton.addEventListener('mouseout', () => {
+            saveButton.style.backgroundColor = '#007bff';
+        });
+        saveButton.addEventListener('click', () => {
+            handleSend(newestNotification);
+        });
+        answersContainer.appendChild(saveButton);
         newestNotificationElement.appendChild(answersContainer);
-        newestNotificationElement.appendChild(saveButton);
-    } else {
+    }
+    else {
         // For notifications that don't need a response, mark as read when clicked
         newestNotificationElement.addEventListener('click', () => {
             if (!newestNotification.procitano) {
                 newestNotification.procitano = true;
+                sendAnswersToBackground(newestNotification);
                 fillNotificationBox(); // Re-render to update the state of notifications
             }
         });
@@ -1069,14 +1260,18 @@ function fillNotificationBox() {
     olderNotificationsContainer.style.display = 'flex';
     olderNotificationsContainer.style.flexWrap = 'nowrap';
     olderNotificationsContainer.style.overflowX = 'auto';
+    olderNotificationsContainer.style.maxHeight = '100px'; // Set max height for the container
     olderNotificationsContainer.style.gap = '10px';
 
     // Loop through the sorted notifications
     notifications.slice(1).forEach((notification, index) => {
         const notificationCard = document.createElement('div');
         notificationCard.style.minWidth = '200px';
+        notificationCard.style.maxWidth = '350px';
         notificationCard.style.padding = '10px';
         notificationCard.style.borderRadius = '5px';
+        notificationCard.style.overflow = 'hidden';
+        notificationCard.style.maxHeight = '100%'; // Ensure the card does not exceed the container height
         notificationCard.style.margin = '5px';
         notificationCard.style.backgroundColor = notification.procitano ? '#d4edda' : '#f8d7da';  // Soft green if read, soft red if unread
         notificationCard.style.boxShadow = `0 0 10px ${notification.procitano ? '#28a745' : '#dc3545'}`;  // Glow effect
@@ -1084,9 +1279,12 @@ function fillNotificationBox() {
         notificationCard.style.transition = 'box-shadow 0.2s ease';  // Smooth transition for box-shadow
         notificationCard.style.position = 'relative';  // Needed for positioning the status text
 
-        // Add the notification content
+        // Add the notification content with ellipsis
         const notificationText = document.createElement('p');
         notificationText.textContent = notification.notification;
+        notificationText.style.whiteSpace = 'wrap'; // Ensure the text does not wrap
+        notificationText.style.overflow = 'hidden'; // Hide overflow content
+        notificationText.style.textOverflow = 'ellipsis'; // Display ellipsis if text is too long
         notificationCard.appendChild(notificationText);
 
         // Add "Potreban odgovor" or "Odgovoreno" text if response is needed
@@ -1112,16 +1310,13 @@ function fillNotificationBox() {
             }
         });
 
-        // Only show the answersContainer if this notification becomes active (after clicking)
-        if (!notification.isResponseNeeded) {
-            // Mark as read immediately for non-active notifications
-            notificationCard.addEventListener('click', () => {
-                if (!notification.procitano) {
-                    notification.procitano = true;
-                    fillNotificationBox(); // Re-render to update the state of notifications
-                }
-            });
-        }
+        // Mark as read immediately for non-active notifications
+        notificationCard.addEventListener('click', () => {
+            if (!notification.procitano) {
+                notification.procitano = true;
+                fillNotificationBox(); // Re-render to update the state of notifications
+            }
+        });
 
         olderNotificationsContainer.appendChild(notificationCard);
     });
@@ -1129,37 +1324,77 @@ function fillNotificationBox() {
     notificationBox.appendChild(olderNotificationsContainer);
 }
 
+interface Notification {
+    // existing properties
+    ponavljajuca: boolean; // add this line
+}
 
+interface Notification {
+    // other properties...
+    response: any; // or specify the type of the response property
+}
+function clearNotificationsAtSpecificTime() {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    // Check if the current time is 08:30 AM
+    if (currentHour === 8 && currentMinute === 30) {
 
+        // Load notifications from localStorage
+        const storedNotifications = localStorage.getItem('notifications');
+        if (!storedNotifications) return;
 
+        const oldNotifications = JSON.parse(storedNotifications) as Notification[];
 
+        // Process oldNotifications
+        const updatedNotifications = oldNotifications.filter(notification => {
+            if (notification.ponavljajuca) {
+                // Reset response for recurring oldNotifications
+                notification.response = {}; // Clear the response
+                return true; // Keep the notification
+            } else {
+                // Remove non-recurring oldNotifications
+                return false; // Remove the notification
+            }
+        });
 
+        notifications = updatedNotifications
+        // Save updated notifications back to localStorage
+        localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
 
-
-
-
-
+        // Optionally, you may want to re-render the notification box here
+        fillNotificationBox();
+    }
+}
 
 function sendAnswersToBackground(notification: any) {
-    const notificationBox = document.querySelector('.notificationBox') as HTMLElement;
-    const answersContainer = notificationBox.querySelector('.answersContainer') as HTMLElement;
-
-    const answers: { [key: string]: string } = {};
-
-    answersContainer?.querySelectorAll('input').forEach((input, index) => {
-
-        const label = answersContainer.querySelectorAll('label')[index];
-        const question = label.textContent?.trim().split(':')[0] || ''; // Assign a default empty string if question is undefined
-        answers[question] = input.value;
-    });
-
-
+    // Send the updated notification directly since the answers are already included
     chrome.runtime.sendMessage({
         type: 'SEND_ANSWERS',
         notification: notification,
-        answers,
     });
 }
+
+function checkAndDisplayNotifications() {
+    const now = new Date();
+    const currentTime = now.toTimeString().split(' ')[0]; // Extract the time in HH:MM:SS format
+
+    // Loop through all notifications
+    notifications.forEach(notification => {
+        if (notification.ponavljajuca && notification.vrijeme_prikaza === currentTime) {
+            // Only display the notification if it's active and hasn't been read yet
+            if (notification.isActive) {
+                // Call your existing function to display the notification
+                fillNotificationBox();
+
+                // Mark the notification as read (if you want it to disappear after being shown)
+                notification.procitano = true;
+                saveNewNotificationToLocalstorage();
+            }
+        }
+    });
+}
+
 
 const saveNewNotificationToLocalstorage = () => {
     localStorage.setItem("notifications", JSON.stringify(notifications))
