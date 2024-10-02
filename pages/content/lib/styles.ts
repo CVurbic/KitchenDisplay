@@ -239,9 +239,6 @@ export function addGlobalStyles() {
             background-color: #0056b3;
         }
 
-        .fullscreen-button::before {
-            content: '⤢';
-        }
 
         
         #summary-container {

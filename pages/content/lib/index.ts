@@ -50,6 +50,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // setStoredData("allArticles", allArticles);
     }
 
+    if (message.type === 'UPDATE_AVAILABLE') {
+        showUpdateNotification(message.version, message.updateUrl);
+    }
+
     if (message.startNotifications) {
         getNotificationsFromStorage();
     }
@@ -180,12 +184,7 @@ observer.observe(document.body, {
     attributeFilter: ["class"],
 });
 
-// Listen for update available message
-chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'UPDATE_AVAILABLE') {
-        showUpdateNotification(message.version, message.updateUrl);
-    }
-});
+
 
 function showUpdateNotification(version: string, updateUrl: string) {
     // Create and show a notification to the user
