@@ -7800,7 +7800,7 @@
   const createClient = (supabaseUrl2, supabaseKey2, options) => {
     return new SupabaseClient(supabaseUrl2, supabaseKey2, options);
   };
-  const version = "1.0.1";
+  const version = "1.0.2";
   exampleThemeStorage.get().then((theme) => {
     console.log("theme", theme);
   });
