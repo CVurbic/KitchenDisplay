@@ -179,3 +179,23 @@ observer.observe(document.body, {
     attributes: true,
     attributeFilter: ["class"],
 });
+
+// Listen for update available message
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'UPDATE_AVAILABLE') {
+        showUpdateNotification(message.version, message.updateUrl);
+    }
+});
+
+function showUpdateNotification(version: string, updateUrl: string) {
+    // Create and show a notification to the user
+    const notification = document.createElement('div');
+    notification.textContent = `A new version (${version}) is available. Do you want to update?`;
+    const updateButton = document.createElement('button');
+    updateButton.textContent = 'Update';
+    updateButton.onclick = () => {
+        chrome.runtime.sendMessage({ type: 'INSTALL_UPDATE', updateUrl: updateUrl });
+    };
+    notification.appendChild(updateButton);
+    document.body.appendChild(notification);
+}

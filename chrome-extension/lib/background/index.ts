@@ -495,7 +495,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
 
 // Function to check for updates
 async function checkForUpdates() {
-  const response = await fetch('https://raw.githubusercontent.com/CVurbic/KitchenDisplay/main/update-info.json');
+  const response = await fetch('https://raw.githubusercontent.com/CVurbic/KitchenDisplay/refs/heads/main/update-info.json');
   const data = await response.json();
 
   if (data.updateAvailable && data.version > version) {
