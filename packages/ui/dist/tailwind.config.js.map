@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../tailwind.config.ts"],
+  "sourcesContent": ["import { type Config } from 'tailwindcss';\n\nconst config: Config = {\n  content: [],\n};\nexport default config;\n"],
+  "mappings": ";AAEA,MAAM,SAAiB;AAAA,EACrB,SAAS,CAAC;AACZ;AACA,eAAe;",
+  "names": []
+}

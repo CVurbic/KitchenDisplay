@@ -1,6 +1,7 @@
 import 'webextension-polyfill';
 import { exampleThemeStorage } from '@extension/storage';
 import { createClient } from '@supabase/supabase-js';
+import { version } from '../../../update-info.json';
 
 exampleThemeStorage.get().then(theme => {
   console.log('theme', theme);
@@ -11,7 +12,7 @@ const supabaseUrl = 'https://xxqeupvmmmxltbtxcgvp.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4cWV1cHZtbW14bHRidHhjZ3ZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE2Njk1Nzk3MDYsImV4cCI6MTk4NTE1NTcwNn0.Pump9exBhsc1TbUGqegEsqIXnmsmlUZMVlo2gSHoYDo';
 const supabase = createClient(supabaseUrl, supabaseKey)
 
-let poslovnica: any = undefined
+let poslovnica = "AKZ"
 let settings: any = {}
 let highlightArtiklID: number | undefined
 
@@ -21,24 +22,73 @@ let highlightArtiklID: number | undefined
 const channels = supabase.channel('custom-all-channel')
   .on(
     'postgres_changes',
-    { event: 'INSERT', schema: 'public', table: 'kitchenNotifikations' },
+    { event: '*', schema: 'public', table: 'kitchenNotifikations', filter: `poslovnica=eq.${poslovnica}` },
     (payload) => {
-      console.log(payload)
-      console.log(poslovnica)
-      // Extract the new notification data
-      const newNotification = payload.new;
+      switch (payload.eventType) {
+        case 'INSERT':
 
-      // Check if the `poslovnica` matches the target value
-      if (newNotification.poslovnica === poslovnica) {
-        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-          if (tabs[0].id) {
-            chrome.tabs.sendMessage(tabs[0].id, { newNotification });
+          console.log('Insert received!', payload)
+          // Extract the new notification data
+
+          if (payload.new.ponavljajuca) {
+            const repeatingNotification = payload.new
+            console.log("ova je ponavjljajuca")
+            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+              if (tabs[0].id) {
+                chrome.tabs.sendMessage(tabs[0].id, { repeatingNotification });
+              }
+            });
+          } else {
+
+            const newNotification = payload.new;
+            console.log("ova nije ponavjljajuca")
+            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+              if (tabs[0].id) {
+                chrome.tabs.sendMessage(tabs[0].id, { newNotification });
+              }
+            });
           }
-        });
-        console.log('Change received and matched!', payload);
-      } else {
-        console.log('Change received but does not match the filter.', payload);
+          break;
+        case 'UPDATE':
+
+          if (!payload.new.isActive) {
+            console.log('Remove received!', payload)
+            const removeNotification = payload.new
+            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+              if (tabs[0].id) {
+                chrome.tabs.sendMessage(tabs[0].id, { removeNotification });
+              }
+            });
+          } else if (payload.new.procitano) {
+            console.log('Read received!', payload)
+            const readNotification = payload.new
+            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+              if (tabs[0].id) {
+                chrome.tabs.sendMessage(tabs[0].id, { readNotification });
+              }
+            });
+          } else {
+            console.log('Update received!', payload)
+            const otherUpdateNotification = payload.new
+            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+              if (tabs[0].id) {
+                chrome.tabs.sendMessage(tabs[0].id, { otherUpdateNotification });
+              }
+            });
+
+          }
+
+          break;
+        case 'DELETE':
+          console.log('Delete received!', payload)
+          break;
+        default:
+          console.log('Unknown event type received!', payload)
+          break;
       }
+
+
+
     }
   )
   .subscribe();
@@ -53,14 +103,7 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log("Extension installed");
 });
 
-chrome.storage.local.get("location", function (data) {
-  console.log("lokacija", data)
-  poslovnica = data.location
-  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-    if (tabs[0].id) chrome.tabs.sendMessage(tabs[0].id, { poslovnicaID: data.location });
-  })
 
-});
 chrome.storage.local.get("settings", function (data) {
   console.log("StorageOnLoad", data)
   highlightArtiklID = data.settings?.highlightArticle;
@@ -102,10 +145,13 @@ chrome.storage.onChanged.addListener(function (changes, _namespace) {
 
 chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, _tab) {
   if (changeInfo.status === 'complete') {
+
     // Provjerite je li tab u kojem je stranica učitana aktivan
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       if (tabs.length > 0 && tabs[0].id === tabId) {
         // Ako je tab aktivan, pošaljite poruku u content skript
+
+        fetchNotifications()
         console.log("onUpdate")
         fetchTheme()
           .then(data => {
@@ -176,19 +222,27 @@ const fetchHighlightedArticleSupa = async () => {
   return (settings)
 }
 
-/* async function fetchNotifikacija() {
-  const response = await fetch(`${supabaseUrl}/notifications`, {
-    method: 'GET',
-    headers: {
-      'apikey': supabaseKey,
-      'Authorization': `Bearer ${supabaseKey}`,
+async function fetchNotifications() {
+  const { data, error } = await supabase
+    .from('kitchenNotifikations')
+    .select('*')
+    .eq('poslovnica', poslovnica)
+    .eq('isActive', true);
+
+  if (error) {
+    console.error('Error fetching notifications:', error.message);
+    return;
+  }
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const activeTab = tabs[0];
+    if (activeTab && activeTab.id) {
+      chrome.tabs.sendMessage(activeTab.id, { startNotifications: data });
     }
   });
-  let json = await response.json();
-  console.log("notifikacija", json)
-  return (json)
+  return;
 }
-fetchNotifikacija() */
+
 
 async function sendSupaHighlightArticle(highlightArticleId: number) {
   try {
@@ -435,6 +489,34 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
   return true
 });
 
+
+
+
+
+// Function to check for updates
+async function checkForUpdates() {
+  const response = await fetch('https://raw.githubusercontent.com/CVurbic/KitchenDisplay/main/update-info.json');
+  const data = await response.json();
+
+  if (data.updateAvailable && data.version > version) {
+    chrome.runtime.sendMessage({
+      type: 'UPDATE_AVAILABLE',
+      version: data.version,
+      updateUrl: data.updateUrl
+    });
+  }
+}
+
+// Check for updates periodically (e.g., once a day)
+setInterval(checkForUpdates, 24 * 60 * 60 * 1000);
+
+// Listen for update installation request
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'INSTALL_UPDATE') {
+    // Here, instead of using Chrome's built-in updater, we'll direct the user to download the new version
+    chrome.tabs.create({ url: message.updateUrl });
+  }
+});
 
 
 

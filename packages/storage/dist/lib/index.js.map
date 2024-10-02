@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../lib/index.ts"],
+  "sourcesContent": ["import { createStorage, StorageType, type BaseStorage, SessionAccessLevel } from './base';\nimport { exampleThemeStorage } from './exampleThemeStorage';\n\nexport { exampleThemeStorage, createStorage, StorageType, SessionAccessLevel, BaseStorage };\n"],
+  "mappings": ";AAAA,SAAS,eAAe,aAA+B,0BAA0B;AACjF,SAAS,2BAA2B;AAEpC,SAAS,qBAAqB,eAAe,aAAa;",
+  "names": []
+}

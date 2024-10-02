@@ -5,6 +5,5 @@ export default function App() {
     console.log('content ui loaded');
   }, []);
 
-  return (<></>
-  );
+  return (<></>);
 }

@@ -5,6 +5,10 @@ const packageJson = JSON.parse(fs.readFileSync('../package.json', 'utf8'));
 
 const isFirefox = process.env.__FIREFOX__ === 'true';
 
+
+const ip = "http://192.168.87.10/*" // Change to the IP of the kitchen display
+
+
 const sidePanelConfig = {
   side_panel: {
     default_path: 'side-panel/index.html',
@@ -26,7 +30,7 @@ const manifest = deepmerge(
     host_permissions: [
       "file:///*/*",
       "http://127.0.0.1/*",
-      "http://192.168.0.0/*", // Covers 192.168.*.* addresses
+      ip,
       "https://192.168.0.0/*", // For HTTPS if needed
       "http://*/*",
       "https://*/*"
@@ -41,30 +45,27 @@ const manifest = deepmerge(
     background: {
       service_worker: 'background.iife.js',
       type: 'module',
-      matches: ["file:///*/*", 'http://127.0.0.1/*', 'http://192.168.0.0/*', 'https://192.168.0.0/*', 'http://*/*', 'https://*/*']
+      matches: ["file:///*/*", 'http://127.0.0.1/*', ip, 'http://*/*', 'https://*/*']
     },
     action: {
       default_popup: 'popup/index.html',
       default_icon: 'icon-34.png',
-    },
-    chrome_url_overrides: {
-      newtab: 'new-tab/index.html',
     },
     icons: {
       128: 'icon-128.png',
     },
     content_scripts: [
       {
-        matches: ["file:///*/*", "http://127.0.0.1/*", "http://192.168.0.0/*", "https://192.168.0.0/*"],
+        matches: ["file:///*/*", "http://127.0.0.1/*", ip, "https://192.168.0.0/*"],
         js: ['content/index.iife.js'],
         run_at: "document_end"
       },
       {
-        matches: ["file:///*/*", "http://127.0.0.1/*", "http://192.168.0.0/*", "https://192.168.0.0/*"],
+        matches: ["file:///*/*", "http://127.0.0.1/*", ip, "https://192.168.0.0/*"],
         js: ['content-ui/index.iife.js'],
       },
       {
-        matches: ["file:///*/*", "http://127.0.0.1/*", "http://192.168.0.0/*", "https://192.168.0.0/*"],
+        matches: ["file:///*/*", "http://127.0.0.1/*", ip, "https://192.168.0.0/*"],
         css: ['content.css'], // public folder
       },
     ],

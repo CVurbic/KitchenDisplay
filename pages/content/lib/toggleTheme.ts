@@ -5,3 +5,8 @@ export async function toggleTheme() {
   await exampleThemeStorage.toggle();
   console.log('toggled theme:', await exampleThemeStorage.get());
 }
+
+
+
+
+

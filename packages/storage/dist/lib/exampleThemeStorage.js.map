@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../lib/exampleThemeStorage.ts"],
+  "sourcesContent": ["import { BaseStorage, createStorage, StorageType } from './base';\n\ntype Theme = 'light' | 'dark';\n\ntype ThemeStorage = BaseStorage<Theme> & {\n  toggle: () => Promise<void>;\n};\n\nconst storage = createStorage<Theme>('theme-storage-key', 'light', {\n  storageType: StorageType.Local,\n  liveUpdate: true,\n});\n\nexport const exampleThemeStorage: ThemeStorage = {\n  ...storage,\n  // TODO: extends your own methods\n  toggle: async () => {\n    await storage.set(currentTheme => {\n      return currentTheme === 'light' ? 'dark' : 'light';\n    });\n  },\n};\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;AAAA,SAAsB,eAAe,mBAAmB;AAQxD,MAAM,UAAU,cAAqB,qBAAqB,SAAS;AAAA,EACjE,aAAa,YAAY;AAAA,EACzB,YAAY;AACd,CAAC;AAEM,aAAM,sBAAoC,iCAC5C,UAD4C;AAAA;AAAA,EAG/C,QAAQ,MAAY;AAClB,UAAM,QAAQ,IAAI,kBAAgB;AAChC,aAAO,iBAAiB,UAAU,SAAS;AAAA,IAC7C,CAAC;AAAA,EACH;AACF;",
+  "names": []
+}

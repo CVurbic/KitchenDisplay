@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../../lib/components/Button.tsx"],
+  "sourcesContent": ["import { ComponentPropsWithoutRef } from 'react';\nimport { cn } from '../utils';\n\nexport type ButtonProps = {\n  theme?: 'light' | 'dark';\n} & ComponentPropsWithoutRef<'button'>;\n\nexport function Button({ theme, className, children, ...props }: ButtonProps) {\n  return (\n    <button\n      className={cn(\n        className,\n        'mt-4 py-1 px-4 rounded shadow hover:scale-105',\n        theme === 'light' ? 'bg-white text-black' : 'bg-black text-white',\n      )}\n      {...props}>\n      {children}\n    </button>\n  );\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;AASI;AARJ,SAAS,UAAU;AAMZ,gBAAS,OAAO,IAAuD;AAAvD,eAAE,SAAO,WAAW,SAP3C,IAOuB,IAAiC,kBAAjC,IAAiC,CAA/B,SAAO,aAAW;AACzC,SACE;AAAA,IAAC;AAAA;AAAA,MACC,WAAW;AAAA,QACT;AAAA,QACA;AAAA,QACA,UAAU,UAAU,wBAAwB;AAAA,MAC9C;AAAA,OACI,QANL;AAAA,MAOE;AAAA;AAAA,EACH;AAEJ;",
+  "names": []
+}
